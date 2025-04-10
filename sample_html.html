@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Face Centered Thumbnail</title>
+  <style>
+    .face-thumb {
+      width: 200px;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 12px;
+      transition: all 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+
+<img id="thumb" class="face-thumb" src="https://example.com/person.jpg" />
+
+<script>
+  async function centerFace(imageUrl) {
+    const res = await fetch("http://localhost:5001/face_coordinates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_url: imageUrl })
+    });
+
+    const data = await res.json();
+    const faces = data.faces;
+    if (faces.length === 0) return;
+
+    const face = faces[0];
+    const centerX = face.left + face.width / 2;
+    const centerY = face.top + face.height / 2;
+
+    // Estimate object-position in percent
+    const xPercent = (centerX / imageNaturalWidth) * 100;
+    const yPercent = (centerY / imageNaturalHeight) * 100;
+
+    document.getElementById('thumb').style.objectPosition = `${xPercent}% ${yPercent}%`;
+  }
+
+  const imageUrl = document.getElementById('thumb').src;
+  const image = document.getElementById('thumb');
+
+  // Wait for image to load and get natural dimensions
+  image.onload = () => {
+    window.imageNaturalWidth = image.naturalWidth;
+    window.imageNaturalHeight = image.naturalHeight;
+    centerFace(imageUrl);
+  };
+</script>
+
+</body>
+</html>
