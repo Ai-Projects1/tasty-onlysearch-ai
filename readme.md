@@ -10,8 +10,8 @@ X-API-KEY: your_api_key_here
 
 ### 1. 🔍 Compare Two URLs for Similarity
 
-**Endpoint**: `POST /`  
-**URL**: `https://only-search-ai-275499389350.us-central1.run.app/`
+**Endpoint**: `POST /compare_faces`  
+**URL**: `https://only-search-ai-275499389350.us-central1.run.app/compare_faces`
 
 **Description**: Compares two URLs and returns a confidence score and match flag indicating similarity.
 
