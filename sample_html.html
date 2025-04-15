@@ -5,8 +5,8 @@
   <title>Face Centered Thumbnail</title>
   <style>
     .face-thumb {
-      width: 200px;
-      height: 200px;
+      width: 80vw;
+      height: 80vh;
       object-fit: cover;
       border-radius: 12px;
       transition: all 0.3s ease;
@@ -15,11 +15,11 @@
 </head>
 <body>
 
-<img id="thumb" class="face-thumb" src="https://example.com/person.jpg" />
+<img id="thumb" class="face-thumb" src="https://betterfans.app/sv1/3684516978?page=AlayaPaid&folder=SEXT4(Day)PinkBows&amp;Hearts" />
 
 <script>
   async function centerFace(imageUrl) {
-    const res = await fetch("http://localhost:5001/face_coordinates", {
+    const res = await fetch("https://only-search-ai-275499389350.us-central1.run.app/face_coordinates", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ image_url: imageUrl })

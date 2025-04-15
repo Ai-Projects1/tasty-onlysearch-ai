@@ -3,15 +3,15 @@ import face_recognition
 import numpy as np
 import requests
 from io import BytesIO
-from nudenet import Classifier
+from nudenet import NudeDetector
 import tempfile
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 app = Flask(__name__)
-nudity_classifier = Classifier()
-VALID_API_KEY = "your-secret-api-key"
+nudity_classifier = NudeDetector()
+X_API_KEY = os.getenv('X-API-KEY')
 
 def load_image(input_file=None, input_url=None):
     if input_file:
@@ -28,6 +28,10 @@ def load_image(input_file=None, input_url=None):
 
 @app.route('/compare_faces', methods=['POST'])
 def compare_faces():
+    provided_key = request.headers.get("X-API-Key")
+    if provided_key != X_API_KEY:
+        return jsonify({"error": "Unauthorized. Invalid API Key."}), 401
+    
     try:
         # Get JSON input from the request body
         data = request.get_json()
@@ -55,11 +59,12 @@ def compare_faces():
         # Face distance to confidence score
         face_distance = face_recognition.face_distance([original_encoding], comparison_encoding)[0]
         confidence = (1 - face_distance) * 100
-
-        # Optional threshold (default = 0.75)
-        threshold = float(data.get('threshold', 0.75)) * 100
-        is_match = confidence >= threshold
-
+        
+        threshold = float(data.get('threshold', 0.50)) * 100
+        is_match = bool(confidence >= threshold)
+        print('confidence',confidence)
+        print('is_match',is_match)
+        
         return jsonify({
             'confidence_score': round(confidence, 2),
             'match': is_match
@@ -70,6 +75,10 @@ def compare_faces():
 
 @app.route('/detect_nudity', methods=['POST'])
 def detect_nudity():
+    provided_key = request.headers.get("X-API-Key")
+    if provided_key != X_API_KEY:
+        return jsonify({"error": "Unauthorized. Invalid API Key."}), 401
+    
     try:
         # Case 1: User uploads an image file
         if 'image' in request.files:
@@ -96,21 +105,25 @@ def detect_nudity():
             return jsonify({'error': 'Image file or image_url is required'}), 400
 
         # Classify using NudeNet
-        result = nudity_classifier.classify(image_path)
-        prediction = result.get(image_path)
+        results = nudity_classifier.detect(image_path)
+        nude_labels = ['FEMALE_BREAST_EXPOSED','FEMALE_GENITALIA_EXPOSED','MALE_BREAST_EXPOSED',
+                       'ANUS_EXPOSED','MALE_GENITALIA_EXPOSED']
+        
+        is_nude = False
+        for item in results:
+            if item['class'] in nude_labels:
+                is_nude = True
+                break
 
         # Clean up the temp file
         os.remove(image_path)
 
-        if not prediction:
+        if not results:
             return jsonify({'error': 'Failed to classify image'}), 500
-
-        # Detect if image is nude
-        is_nude = prediction.get("unsafe", 0) > 0.75
 
         return jsonify({
             'nudity': is_nude,
-            'confidence_scores': prediction
+            'confidence_scores': results
         })
 
     except Exception as e:
@@ -118,6 +131,10 @@ def detect_nudity():
 
 @app.route('/face_coordinates', methods=['POST'])
 def face_coordinates():
+    provided_key = request.headers.get("X-API-Key")
+    if provided_key != X_API_KEY:
+        return jsonify({"error": "Unauthorized. Invalid API Key."}), 401
+    
     try:
         data = request.get_json()
         if not data:
