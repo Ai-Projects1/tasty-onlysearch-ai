@@ -27,8 +27,7 @@ X_API_KEY = os.getenv('X-API-KEY')
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 clip_model, clip_preprocess = clip.load("ViT-B/32", device=device)
-llm_pipeline = pipeline("text-generation", model="gpt2")  # Replace with OpenAI API if preferred
-
+llm_pipeline = pipeline("text-generation", model="./models/gpt2", tokenizer="./models/gpt2")
 
 url = os.getenv('SUPABASE_URL')
 key = os.getenv('SUPABASE_KEY')
