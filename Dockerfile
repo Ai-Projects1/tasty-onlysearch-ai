@@ -34,7 +34,7 @@ RUN pip install dlib
 # Copy the rest of the app
 COPY . .
 
-# Expose the app port (Cloud Run expects the app to listen on port 8080)
+# Expose the app port (Cloud Run expects the app to gitlisten on port 8080)
 EXPOSE 8080
 
 # Run the app (Flask's default behavior is to bind to 0.0.0.0, which is needed for Cloud Run)
