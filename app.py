@@ -383,5 +383,5 @@ def recommend_similar_images():
     return jsonify(top_results[['username', 'avatar', 'similarity_score']].to_dict(orient="records"))
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8080)
+    app.run(host="0.0.0.0", debug=True, port=8080)
 
