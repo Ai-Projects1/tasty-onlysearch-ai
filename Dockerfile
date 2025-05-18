@@ -31,10 +31,19 @@ RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 # Install dlib explicitly (required by face_recognition)
 RUN pip install dlib
 
+# Install transformers and download/save gpt-2 model
+RUN pip install transformers && \
+    python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; \
+                model_name = \'gpt2\'; \
+                model = AutoModelForCausalLM.from_pretrained(model_name); \
+                tokenizer = AutoTokenizer.from_pretrained(model_name); \
+                model.save_pretrained(\'/app/models/gpt2\'); \
+                tokenizer.save_pretrained(\'/app/models/gpt2\')"
+                
 # Copy the rest of the app
 COPY . .
 
-# Expose the app port (Cloud Run expects the app to listen on port 8080)
+# Expose the app port (Cloud Run expects the app to gitlisten on port 8080)
 EXPOSE 8080
 
 # Run the app (Flask's default behavior is to bind to 0.0.0.0, which is needed for Cloud Run)
