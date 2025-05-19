@@ -29,6 +29,11 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 clip_model, clip_preprocess = clip.load("ViT-B/32", device=device)
 llm_pipeline = pipeline("text-generation", model="./models/gpt2", tokenizer="./models/gpt2")
 
+print("Preloading DeepFace gender model...")
+gender_model = DeepFace.build_model(model_name="Gender",task='facial_attribute')
+print("Gender model preloaded.")
+
+
 url = os.getenv('SUPABASE_URL')
 key = os.getenv('SUPABASE_KEY')
 supabase: Client = create_client(url, key)
@@ -402,5 +407,4 @@ def recommend_similar_images():
     return jsonify(top_results[['username', 'avatar', 'similarity_score']].to_dict(orient="records"))
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", debug=True, port=8080)
-
+    app.run(host="0.0.0.0", debug=False, port=8080)
