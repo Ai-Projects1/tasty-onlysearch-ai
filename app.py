@@ -278,35 +278,55 @@ def analyze_gender():
     return result
 
 @app.route('/bulk-analyze-gender', methods=['POST'])
-def run_profile_and_predict_gender(num_pages, profile_url, start_page=3):
+def bulk_analyze_gender():
+    try:
+        # Get input JSON
+        data = request.get_json()
+        end_page = data.get('num_pages')
+        profile_url = data.get('profile_url')
+        start_page = data.get('start_page', 3)  # default to 3
 
-    for page in range(start_page, num_pages + 1):
-        print(f"\n=== Processing page {page} ===")
-        gender_data = []
+        if not end_page or not profile_url:
+            return jsonify({"error": "Missing 'num_pages' or 'profile_url'"}), 400
 
-        try:
-            response = requests.post(url=profile_url, json={"page": page})
-            response.raise_for_status()
-            data = response.json().get('data', [])
-        except Exception as e:
-            print(f"Failed to fetch profiles for page {page}: {e}")
-            data = []  # Continue with an empty list so CSV still gets saved
+        all_gender_data = []
 
-        for item in data:
+        for page in range(start_page, end_page + 1):
+            print(f"\n=== Processing page {page} ===")
+            gender_data = []
+
             try:
-                profile = item.get('ProfileDatum', {})
-                username = item.get('username', None)
-                avatar = profile.get('avatar', None)
-
-                if avatar:
-                    print(f'username: {username} - avatar: {avatar}')
-                    gender_response = analyze_gender_logic(avatar)
-                    
-                    gender_data.append(gender_response)
-
+                response = requests.post(url=profile_url, json={"page": page})
+                response.raise_for_status()
+                profiles = response.json().get('data', [])
             except Exception as e:
-                print(f"Error processing profile for username {username}: {e}")
-                continue  # Skip to next profile
+                print(f"Failed to fetch profiles for page {page}: {e}")
+                profiles = []
+
+            for item in profiles:
+                try:
+                    profile = item.get('ProfileDatum', {})
+                    username = item.get('username')
+                    avatar = profile.get('avatar')
+
+                    if avatar:
+                        print(f'username: {username} - avatar: {avatar}')
+                        gender_result = analyze_gender_logic(avatar)
+                        gender_result['username'] = username
+                        gender_result['avatar'] = avatar
+                        gender_data.append(gender_result)
+
+                except Exception as e:
+                    print(f"Error processing profile for username {username}: {e}")
+                    continue
+
+            all_gender_data.extend(gender_data)
+
+        return jsonify(all_gender_data), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 #### USER RECOMMENDATIONS BASED ON SEARCH CRITERIA ####
 def get_face_embedding(image_path):
