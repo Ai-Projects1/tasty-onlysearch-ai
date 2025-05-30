@@ -436,14 +436,18 @@ def analyze_about():
             print(f"About text analysis returned unknown gender, falling back to image analysis")
             image_result = analyze_gender_logic(image_url)
             
+            # For consistency with order, even though there are no thoughts in image analysis
             return jsonify({
+                'thoughts': '',
                 'gender': image_result.get('gender', 'unknown'),
-                'confidence': image_result.get('confidence', 0),
                 'source': 'image_analysis',
-                'predicted_by': image_result.get('predicted_by', 'unknown')
+                'predicted_by': image_result.get('predicted_by', 'unknown'),
+                'confidence': image_result.get('confidence', 0)
             })
             
+        # Return fields in specified order: thoughts, gender, source
         return jsonify({
+            'thoughts': result.get('thoughts', ''),
             'gender': result['gender'],
             'source': 'text_analysis'
         })

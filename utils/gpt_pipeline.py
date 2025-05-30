@@ -1,6 +1,10 @@
 import os
 import requests
+import logging
 from typing import Dict, Any, Optional, List
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class GPTAnalyzer:
     """
@@ -14,79 +18,69 @@ class GPTAnalyzer:
         self.api_url = "https://api.openai.com/v1/chat/completions"
         
     def analyze_about_section(self, about_text: str) -> Dict[str, Any]:
-
-        prompt_template = """
-You are a gender classification assistant. You are based on OnlySearch which is an OnlyFans search engine where user's can join and create their own profile
-
-Your job is to determine the gender of the user based on the {about_text} given. Their {about_text} is their bio, explaining themselves and their preferences, marketing themselves on OnlySearch
-
-Since we're linked to OnlyFans, most likely majority of the {about_text} will be female gender. But you should still account for the possibility of male gender based on their {about_text}
-
-I will be giving a list of possible keywords that are most likely to be used by the user to describe themselves below:
-
-    <female_possible_keywords>
-    - Blowjob
-    - Creampie
-    - Watch you cum
-    - Watch me cum my ass out
-    - Watch me seduce you
-    - Looking for BBC/Male here
-    - Feet pics, panties, dickrates, pussy pics
-    - Anything related to tits and camming
-    - horny MILF here
-    - Dildo blowjob videos
-    </female_possible_keywords>
-
-    <male_possible_keywords>
-    - BBC Male here
-    - Rate my dick
-    - Cum ride this 🍆
-    - I eat pussies
-    </male_possible_keywords>
-
-
-'''
-{about_text}
-'''
-
-In some instance, the {about_text} may contain insufficient information for you to determine the gender of the user. In this case, you should respond with "unknown" to let our fallback model take over
-
-Based on the text above, is the user male or female? Answer with only one word: "male", "female", or "unknown"
-        """
-        
-        prompt = prompt_template.format(about_text=about_text)
-        
-        result = self._call_openai_api(prompt)
+        result = self._call_openai_api(about_text)
         
         if not result["success"]:
             return result
-            
-        analysis = result["analysis"].strip().lower()
         
-        if "male" in analysis:
-            gender = "male"
-        elif "female" in analysis:
-            gender = "female"
-        else:
-            gender = "unknown"
+        response_content = result["analysis"].strip()
+        
+        try:
+            parts = response_content.split("GENDER:")
+            if len(parts) == 2:
+                thoughts = parts[0].strip()
+                gender_text = parts[1].strip().lower()
+            else:
+                thoughts = response_content
+                gender_text = response_content.lower()
             
-        return {
-            "success": True,
-            "gender": gender,
-            "raw_response": result["raw_response"]
-        }
+            logger.info(f"GPT Analysis Thoughts: {thoughts}\n")
+            logger.info(f"Gender: {gender_text}")
+            
+            if "male" in gender_text and not "female" in gender_text:
+                gender = "male"
+            elif "female" in gender_text:
+                gender = "female"
+            else:
+                gender = "unknown"
+                
+            return {
+                "success": True,
+                "gender": gender,
+                "thoughts": thoughts,
+                "raw_response": result["raw_response"]
+            }
+        except Exception as e:
+            logger.error(f"Error processing GPT response: {str(e)}")
+            return {
+                "success": False,
+                "error": f"Error processing response: {str(e)}",
+                "raw_response": result["raw_response"]
+            }
     
-    def _call_openai_api(self, prompt: str) -> Dict[str, Any]:
+    def _call_openai_api(self, about_text: str) -> Dict[str, Any]:
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
         }
         
+        system_prompt = """
+        Analyze the provided profile text for gender indicators
+        
+        First, explain your reasoning process by identifying specific words, phrases, or context clues that suggest gender
+        Then, provide your final determination
+        
+        Format your response as:
+        [ANALysis]
+        
+        GENDER: 'female' (if words like woman, girl, she/her pronouns are present or any indicators that they are a female), 'male' (if words like man, guy, he/him pronouns are present or any indicators that they are a male), or 'unknown' (if gender cannot be determined due to insufficient information)
+        """
+        
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": "You are a gender classification assistant. You only respond with 'male', 'female', or 'unknown'."},
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": about_text}
             ],
             "temperature": 0.1,
             "max_tokens": 1000
@@ -101,6 +95,7 @@ Based on the text above, is the user male or female? Answer with only one word: 
                 "raw_response": response.json()
             }
         except Exception as e:
+            logger.error(f"API call error: {str(e)}")
             return {
                 "success": False,
                 "error": str(e)
