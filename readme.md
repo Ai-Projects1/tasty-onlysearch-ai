@@ -191,6 +191,33 @@ Recommends similar profile images based on either a text prompt or image. Uses a
 
 ---
 
+### 7. 📝 Analyze About Section
+
+**Endpoint**: `POST /analyze-about`  
+**URL**: `https://only-search-ai-275499389350.us-central1.run.app/analyze-about`
+
+**Description**: Analyzes the 'about' section of a profile using GPT-4o-mini to determine the gender of the user
+
+#### Request Body (JSON)
+```json
+{
+  "about": "*We both share this account <br />\nInterracial 30’s Couple. <br />\nFit athletic  8” BBC Stud🍆 sharing nice content with Fit-Thick Pawg 👩🏻💦.<br />\nBlowjobs, Handjobs, Creampie, hardcore, POV, Squirting, Cumshots &amp; More. Join us to see😈💦<br />\nPLEASE READ❗️Any institutions or individuals making use of this site and its members/participants, or any associated sites for academic studies or projects are given notice: this profile is the copyright of the author. I DO NOT GRANT YOU ANY PERMISSION TO USE ANY OF THIS PROFILE, its content, its images, its video files or any other component, in whole or in part, in any form, extracted or not, for any purpose or forum whatsoever, either now or in perpetuity. If you have or do, it will be considered a violation of copyright and privacy, and will be subject to legal ramifications."
+}
+```
+
+#### Response Sample
+```json
+{
+  "gender": "female"
+}
+```
+
+**Possible values**: `male`, `female`, or `unknown`
+
+If `about` can't be processed to get the `gender`, it will use the `image_url` as fallback and return based on the image
+
+---
+
 ## 🛡️ Authentication
 
 All requests must include an API key in the headers:

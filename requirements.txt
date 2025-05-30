@@ -15,3 +15,4 @@ openai-clip
 transformers
 scikit-learn
 supabase
+openai==1.82.0

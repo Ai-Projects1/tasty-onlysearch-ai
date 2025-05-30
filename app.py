@@ -18,6 +18,7 @@ from torchvision import models,transforms
 from transformers import pipeline
 from sklearn.metrics.pairwise import cosine_similarity
 from supabase import create_client, Client
+from utils.gpt_pipeline import gpt_analyzer
 
 ##### ONE TIME LOADS #####
 load_dotenv()
@@ -27,7 +28,7 @@ X_API_KEY = os.getenv('X-API-KEY')
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 clip_model, clip_preprocess = clip.load("ViT-B/32", device=device)
-llm_pipeline = pipeline("text-generation", model="./models/gpt2", tokenizer="./models/gpt2")
+llm_pipeline = pipeline("text-generation", model="gpt2")
 
 print("Preloading DeepFace gender model...")
 gender_model = DeepFace.build_model(model_name="Gender",task='facial_attribute')
@@ -260,11 +261,11 @@ def analyze_gender_logic(image_url):
         gender = result[0]['dominant_gender']
         confidence = result[0]['gender']
         if gender.lower() != 'unknown':
-            return jsonify({
+            return {
                 'predicted_by': 'deepface',
                 'gender': gender.lower(),
                 'confidence': confidence
-            })
+            }
     except Exception as e:
         print("DeepFace Error:", e)
 
@@ -280,7 +281,7 @@ def analyze_gender():
         return jsonify({'error': 'image_url is required'}), 400
 
     result = analyze_gender_logic(image_url)
-    return result
+    return jsonify(result)
 
 @app.route('/bulk-analyze-gender', methods=['POST'])
 def bulk_analyze_gender():
@@ -405,6 +406,50 @@ def recommend_similar_images():
 
     # Return only relevant fields
     return jsonify(top_results[['username', 'avatar', 'similarity_score']].to_dict(orient="records"))
+
+##### DETECT GENDER USING GPT (FALLBACK INCLUDED) ######
+@app.route('/analyze-about', methods=['POST'])
+def analyze_about():
+    provided_key = request.headers.get("X-API-Key")
+    if provided_key != X_API_KEY:
+        return jsonify({"error": "Unauthorized. Invalid API Key."}), 401
+    
+    try:
+        data = request.get_json()
+        about_text = data.get('about')
+        image_url = data.get('image_url')
+        
+        if not about_text:
+            return jsonify({'error': 'about field is required'}), 400
+            
+        if not image_url:
+            return jsonify({'error': 'image_url field is required'}), 400
+            
+        # First : analyze `about`
+        result = gpt_analyzer.analyze_about_section(about_text)
+        
+        if not result['success']:
+            return jsonify({'error': result['error']}), 500
+            
+        # If gender `unknown`, fallback to image analysis
+        if result['gender'] == 'unknown':
+            print(f"About text analysis returned unknown gender, falling back to image analysis")
+            image_result = analyze_gender_logic(image_url)
+            
+            return jsonify({
+                'gender': image_result.get('gender', 'unknown'),
+                'confidence': image_result.get('confidence', 0),
+                'source': 'image_analysis',
+                'predicted_by': image_result.get('predicted_by', 'unknown')
+            })
+            
+        return jsonify({
+            'gender': result['gender'],
+            'source': 'text_analysis'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", debug=False, port=8080)
