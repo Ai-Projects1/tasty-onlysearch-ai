@@ -19,12 +19,20 @@ from transformers import pipeline
 from sklearn.metrics.pairwise import cosine_similarity
 from supabase import create_client, Client
 from utils.gpt_pipeline import gpt_analyzer
+import asyncio
+import concurrent.futures
+from functools import partial
+import logging
+import atexit
 
 ##### ONE TIME LOADS #####
 load_dotenv()
 app = Flask(__name__)
 nudity_classifier = NudeDetector()
 X_API_KEY = os.getenv('X-API-KEY')
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 clip_model, clip_preprocess = clip.load("ViT-B/32", device=device)
@@ -407,9 +415,33 @@ def recommend_similar_images():
     # Return only relevant fields
     return jsonify(top_results[['username', 'avatar', 'similarity_score']].to_dict(orient="records"))
 
-##### DETECT GENDER USING GPT (FALLBACK INCLUDED) ######
+
+def run_async(async_func, *args, **kwargs):
+    """
+    Run an async function in a new event loop.
+    Simplified version that creates a fresh event loop for each request.
+    """
+    try:
+        # Create a completely new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Run the async function and get the result
+        result = loop.run_until_complete(async_func(*args, **kwargs))
+        
+        # Important: Close the loop to free resources
+        loop.close()
+        
+        return result
+    except Exception as e:
+        logger.error(f"Error in async processing: {str(e)}")
+        return {"error": str(e)}
+
 @app.route('/analyze-about', methods=['POST'])
 def analyze_about():
+    """
+    Flask route that processes requests asynchronously
+    """
     provided_key = request.headers.get("X-API-Key")
     if provided_key != X_API_KEY:
         return jsonify({"error": "Unauthorized. Invalid API Key."}), 401
@@ -424,36 +456,68 @@ def analyze_about():
             
         if not image_url:
             return jsonify({'error': 'image_url field is required'}), 400
-            
-        # First : analyze `about`
-        result = gpt_analyzer.analyze_about_section(about_text)
         
-        if not result['success']:
-            return jsonify({'error': result['error']}), 500
-            
-        # If gender `unknown`, fallback to image analysis
-        if result['gender'] == 'unknown':
-            print(f"About text analysis returned unknown gender, falling back to image analysis")
-            image_result = analyze_gender_logic(image_url)
-            
-            # For consistency with order, even though there are no thoughts in image analysis
-            return jsonify({
-                'thoughts': '',
-                'gender': image_result.get('gender', 'unknown'),
-                'source': 'image_analysis',
-                'predicted_by': image_result.get('predicted_by', 'unknown'),
-                'confidence': image_result.get('confidence', 0)
-            })
-            
-        # Return fields in specified order: thoughts, gender, source
-        return jsonify({
-            'thoughts': result.get('thoughts', ''),
-            'gender': result['gender'],
-            'source': 'text_analysis'
-        })
+        result = run_async(
+            process_analyze_about,
+            about_text, 
+            image_url
+        )
+        
+        return jsonify(result)
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+async def process_analyze_about(about_text, image_url):
+    """
+    Asynchronous processing for the analyze-about endpoint
+    """
+    try:
+        # First: analyze `about`
+        result = await gpt_analyzer.analyze_about_section(about_text)
+        
+        if not result['success']:
+            return {'error': result['error']}
+            
+        # If gender `unknown`, fallback to image analysis using GPT Vision
+        if result['gender'] == 'unknown':
+            print(f"About text analysis returned unknown gender, falling back to GPT vision analysis")
+            vision_result = await gpt_analyzer.analyze_image(image_url)
+            
+            if not vision_result['success']:
+                return {'error': vision_result['error']}
+            
+            return {
+                'thoughts': vision_result.get('thoughts', ''),
+                'gender': vision_result.get('gender', 'unknown'),
+                'source': 'vision_analysis',
+                'predicted_by': vision_result.get('predicted_by', 'gpt-vision'),
+                'confidence': vision_result.get('confidence', 0)
+            }
+        
+        return {
+            'thoughts': result.get('thoughts', ''),
+            'gender': result['gender'],
+            'source': 'text_analysis'
+        }
+        
+    except Exception as e:
+        return {'error': str(e)}
+
+def cleanup_resources():
+    """Clean up resources when the application shuts down."""
+    logger.info("Application shutting down, cleaning up resources...")
+    
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(gpt_analyzer.close_session())
+        loop.close()
+    except Exception as e:
+        logger.error(f"Error during cleanup: {str(e)}")
+
+
+atexit.register(cleanup_resources)
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", debug=False, port=8080)
