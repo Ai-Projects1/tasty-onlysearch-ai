@@ -196,25 +196,37 @@ Recommends similar profile images based on either a text prompt or image. Uses a
 **Endpoint**: `POST /analyze-about`  
 **URL**: `https://only-search-ai-275499389350.us-central1.run.app/analyze-about`
 
-**Description**: Analyzes the 'about' section of a profile using GPT-4o-mini to determine the gender of the user
+**Description**: Analyzes the 'about' section of a profile using GPT-4o-mini to determine the gender of the user. Also supports fallback that uses vision.
+
+If `about` can't be processed to get the `gender`, it will use the `image_url` as fallback and return based on the image
+
+> Added fallabck due to:
+> 1. Some users not having `about` not having any gender indicators or empty values
+> 2. Instances with some users not having any face being shown in the `avatar` 
+
+#### image_url that doesn't exists or are TOO NSFW may be blocked by openai itself
 
 #### Request Body (JSON)
 ```json
 {
-  "about": "*We both share this account <br />\nInterracial 30’s Couple. <br />\nFit athletic  8” BBC Stud🍆 sharing nice content with Fit-Thick Pawg 👩🏻💦.<br />\nBlowjobs, Handjobs, Creampie, hardcore, POV, Squirting, Cumshots &amp; More. Join us to see😈💦<br />\nPLEASE READ❗️Any institutions or individuals making use of this site and its members/participants, or any associated sites for academic studies or projects are given notice: this profile is the copyright of the author. I DO NOT GRANT YOU ANY PERMISSION TO USE ANY OF THIS PROFILE, its content, its images, its video files or any other component, in whole or in part, in any form, extracted or not, for any purpose or forum whatsoever, either now or in perpetuity. If you have or do, it will be considered a violation of copyright and privacy, and will be subject to legal ramifications."
+  "about": "*We both share this account <br />\nInterracial 30’s Couple. <br />\nFit athletic  8” BBC Stud🍆 sharing nice content with Fit-Thick Pawg 👩🏻💦.<br />\nBlowjobs, Handjobs, Creampie, hardcore, POV, Squirting, Cumshots &amp; More. Join us to see😈💦<br />\nPLEASE READ❗️Any institutions or individuals making use of this site and its members/participants, or any associated sites for academic studies or projects are given notice: this profile is the copyright of the author. I DO NOT GRANT YOU ANY PERMISSION TO USE ANY OF THIS PROFILE, its content, its images, its video files or any other component, in whole or in part, in any form, extracted or not, for any purpose or forum whatsoever, either now or in perpetuity. If you have or do, it will be considered a violation of copyright and privacy, and will be subject to legal ramifications.",
+  "image_url": "https://public.onlyfans.com/files/r/rd/rdc/rdcmjmu84cgnln4ocnfvktlj2agbdxno1702031311/267479658/avatar.jpg"
 }
 ```
 
-#### Response Sample
+#### Response Sample for text_analysis
 ```json
 {
-  "gender": "female"
+    "gender": "female",
+    "source": "text_analysis",
+    "thoughts": "[ANALysis]\nIn analyzing the provided text, several phrases and words suggest gender indicators. The account describes itself as belonging to a couple, using the term \"interracial,\" which doesn't directly indicate gender but establishes a relationship dynamic. The phrases \"Fit athletic 8” BBC Stud\" and \"Fit-Thick Pawg\" contain specific gender-related terms. \"BBC\" stands for \"Big Black Cock,\" which is a term predominantly associated with male genitalia and indicates the presence of a male partner..."
 }
 ```
 
-**Possible values**: `male`, `female`, or `unknown`
+#### Response Sample for text_analysis
+``
 
-If `about` can't be processed to get the `gender`, it will use the `image_url` as fallback and return based on the image
+**Possible values**: `male`, `female`, or `unknown`
 
 ---
 

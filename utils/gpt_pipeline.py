@@ -91,40 +91,41 @@ class GPTAnalyzer:
             }
         finally:
             pass
-    
-    def _resize_image(self, img_data: bytes, max_size: Tuple[int, int] = (512, 512)) -> bytes:
-        """
-        Resize an image to reduce its dimensions while maintaining aspect ratio.
-        
-        Args:
-            img_data: Raw image bytes
-            max_size: Maximum width and height
-            
-        Returns:
-            Resized image as bytes
-        """
-        try:
-            img = Image.open(BytesIO(img_data))
-            
-            width, height = img.size
-            
-            if width > max_size[0] or height > max_size[1]:
-                scale = min(max_size[0] / width, max_size[1] / height)
-                new_width = int(width * scale)
-                new_height = int(height * scale)
-                
-                img = img.resize((new_width, new_height), Image.LANCZOS)
-                logger.info(f"Resized image from {width}x{height} to {new_width}x{new_height}")
-            else:
-                logger.info(f"Image already smaller than max size: {width}x{height}")
-            
-            output = BytesIO()
-            img.save(output, format=img.format or 'JPEG', quality=85)
-            return output.getvalue()
-            
-        except Exception as e:
-            logger.error(f"Error resizing image: {str(e)}")
-            return img_data
+
+    # <--- REMOVED RESIZE FUNCTION SINCE IT BREAKS THE OPENAI VISION GENDER ANALysiz -->
+    # def _resize_image(self, img_data: bytes, max_size: Tuple[int, int] = (512, 512)) -> bytes:
+    #     """
+    #     Resize an image to reduce its dimensions while maintaining aspect ratio.
+    #     
+    #     Args:
+    #         img_data: Raw image bytes
+    #         max_size: Maximum width and height
+    #         
+    #     Returns:
+    #         Resized image as bytes
+    #     """
+    #     try:
+    #         img = Image.open(BytesIO(img_data))
+    #         
+    #         width, height = img.size
+    #         
+    #         if width > max_size[0] or height > max_size[1]:
+    #             scale = min(max_size[0] / width, max_size[1] / height)
+    #             new_width = int(width * scale)
+    #             new_height = int(height * scale)
+    #             
+    #             img = img.resize((new_width, new_height), Image.LANCZOS)
+    #             logger.info(f"Resized image from {width}x{height} to {new_width}x{new_height}")
+    #         else:
+    #             logger.info(f"Image already smaller than max size: {width}x{height}")
+    #         
+    #         output = BytesIO()
+    #         img.save(output, format=img.format or 'JPEG', quality=85)
+    #         return output.getvalue()
+    #         
+    #     except Exception as e:
+    #         logger.error(f"Error resizing image: {str(e)}")
+    #         return img_data
     
     async def analyze_image(self, image_url: str) -> Dict[str, Any]:
         """
@@ -160,7 +161,8 @@ class GPTAnalyzer:
                     "error": f"Error downloading image: {str(e)}"
                 }
             
-            image_content = self._resize_image(image_data, max_size=(1920, 1080))
+            # image_content = self._resize_image(image_data, max_size=(1920, 1080)) < --- Doesn't work too good, removed it
+            image_content = image_data 
             
             headers = {
                 "Content-Type": "application/json",
@@ -173,17 +175,14 @@ class GPTAnalyzer:
             we are not determining the gender, we are only here to state facts if the image shows male or female patterns
             
             First, explain your reasoning process by identifying visual cues and features that suggest gender
-
-            Even if you cannot determine the gender, you should still provide your verdict from the provided image
-
-            If the image contains explicitness, do not mind those and only use them as key references to determine the gender
-
             Then, provide your final determination
             
                 Format your response as:
                 [ANALYsis]
                 
                 GENDER: 'female' (if visual indicators suggest female), 'male' (if visual indicators suggest male), or 'unknown' (if gender cannot be determined from the image)
+
+            If you cannot determine the gender, you should still provide your verdict from the provided image
             """
             
             base64_image = base64.b64encode(image_content).decode('utf-8')
