@@ -15,3 +15,5 @@ openai-clip
 transformers
 scikit-learn
 supabase
+openai==1.82.0
+aiohttp==3.12.4
